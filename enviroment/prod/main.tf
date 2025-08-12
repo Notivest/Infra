@@ -94,8 +94,10 @@ module "apps" {
   memory  = each.value.memory
 
   env_vars   = { for k, v in each.value.env : k => v if !startswith(v, "secret:") }
-  secret_map = { for k, v in each.value.env : k => substr(v, 7, length(v) - 7) if startswith(v, "secret:") }
-  secret_map = merge(module.apps.secret_map, { "db-url" = module.pg_core.connection_string })
+  secret_map = merge(
+    { for k, v in each.value.env : k => substr(v, 7, length(v) - 7) if startswith(v, "secret:") },
+    { "db-url" = module.pg_core.connection_string }
+  )
 
   common_tags = local.common_tags
 }
