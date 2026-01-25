@@ -58,12 +58,12 @@ resource "google_secret_manager_secret" "secrets" {
 
 resource "google_secret_manager_secret_version" "secrets" {
   for_each = {
-    for name, value in var.secret_values : name => value
+    for name in nonsensitive(keys(var.secret_values)) : name => name
     if contains(local.secret_names, name)
   }
 
   secret      = google_secret_manager_secret.secrets[each.key].id
-  secret_data = each.value
+  secret_data = var.secret_values[each.key]
 }
 
 resource "google_sql_database_instance" "primary" {
@@ -99,11 +99,11 @@ resource "google_sql_database" "databases" {
 }
 
 resource "google_sql_user" "users" {
-  for_each = var.enable_cloud_sql ? var.cloudsql_users : {}
+  for_each = var.enable_cloud_sql ? toset(nonsensitive(keys(var.cloudsql_users))) : toset([])
 
   name     = each.key
   instance = google_sql_database_instance.primary[0].name
-  password = each.value
+  password = var.cloudsql_users[each.key]
 }
 
 resource "google_cloud_run_service" "services" {
