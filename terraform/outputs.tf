@@ -3,6 +3,11 @@ output "load_balancer_ip" {
   description = "Global IP address for the external load balancer."
 }
 
+output "pause_mode" {
+  value       = var.pause_mode
+  description = "Whether pause mode is enabled."
+}
+
 output "frontend_domains" {
   value       = local.frontend_domains
   description = "Frontend domains routed to the frontend service."

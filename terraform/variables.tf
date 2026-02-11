@@ -32,6 +32,18 @@ variable "public_services" {
   default     = []
 }
 
+variable "pause_mode" {
+  type        = bool
+  description = "When true, pauses runtime workloads without destroying infrastructure."
+  default     = false
+}
+
+variable "pause_cloud_sql" {
+  type        = bool
+  description = "When true and pause_mode is enabled, Cloud SQL activation policy is set to NEVER."
+  default     = false
+}
+
 variable "services" {
   type = map(object({
     image         = string

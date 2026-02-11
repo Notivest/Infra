@@ -75,6 +75,10 @@ resource "google_sql_database_instance" "primary" {
   deletion_protection = var.cloudsql_deletion_protection
 
   settings {
+    # Keep SQL running by default in pause mode because the provider cannot
+    # manage sql users/databases reliably while the instance is stopped.
+    activation_policy = (var.pause_mode && var.pause_cloud_sql) ? "NEVER" : "ALWAYS"
+
     tier = var.cloudsql_tier
 
     disk_size = var.cloudsql_disk_gb
@@ -112,76 +116,88 @@ resource "google_cloud_run_service" "services" {
   name     = each.key
   location = var.region
 
+  lifecycle {
+    ignore_changes = [
+      # `gcloud run deploy` adds these annotations; ignoring prevents Terraform from forcing a new revision
+      # just to remove them.
+      template[0].metadata[0].annotations["run.googleapis.com/client-name"],
+      template[0].metadata[0].annotations["run.googleapis.com/client-version"],
+
+      # `gcloud run deploy` often sets this; Terraform doesn't need to manage it.
+      template[0].metadata[0].name,
+    ]
+  }
+
   metadata {
     annotations = {
-      "run.googleapis.com/ingress" = "all"
+      "run.googleapis.com/ingress" = var.pause_mode ? "internal" : "all"
     }
   }
 
-  spec {
-    template {
-      metadata {
-        annotations = merge(
-          {
-            "autoscaling.knative.dev/minScale" = tostring(each.value.min_instances)
-            "autoscaling.knative.dev/maxScale" = tostring(each.value.max_instances)
-          },
-          var.enable_cloud_sql ? {
-            "run.googleapis.com/cloudsql-instances" = local.cloudsql_connection_name
-          } : {}
-        )
-      }
+  template {
+    metadata {
+      annotations = merge(
+        {
+          "autoscaling.knative.dev/minScale" = tostring(var.pause_mode ? 0 : each.value.min_instances)
+          "autoscaling.knative.dev/maxScale" = tostring(each.value.max_instances)
+        },
+        var.enable_cloud_sql ? {
+          "run.googleapis.com/cloudsql-instances" = local.cloudsql_connection_name
+        } : {}
+      )
+    }
 
-      spec {
-        service_account_name = google_service_account.run.email
+    spec {
+      service_account_name = google_service_account.run.email
 
-        containers {
-          image = each.value.image
+      containers {
+        image = each.value.image
 
-          ports {
-            container_port = each.value.port
+        ports {
+          container_port = each.value.port
+        }
+
+        resources {
+          limits = {
+            cpu    = each.value.cpu
+            memory = each.value.memory
           }
+        }
 
-          resources {
-            limits = {
-              cpu    = each.value.cpu
-              memory = each.value.memory
-            }
+        dynamic "env" {
+          for_each = merge(
+            each.value.env,
+            each.key == "alert-engine" &&
+            contains(keys(each.value.env), "SCOPE_AUTH0") &&
+            !contains(keys(each.value.env), "SCOPE_AUHT0")
+              ? { SCOPE_AUHT0 = each.value.env["SCOPE_AUTH0"] }
+              : {}
+          )
+          content {
+            name  = env.key
+            value = env.value
           }
+        }
 
-          env {
-            name  = "PORT"
-            value = tostring(each.value.port)
-          }
-
-          dynamic "env" {
-            for_each = each.value.env
-            content {
-              name  = env.key
-              value = env.value
-            }
-          }
-
-          dynamic "env" {
-            for_each = each.value.secret_env
-            content {
-              name = env.key
-              value_from {
-                secret_key_ref {
-                  name = env.value
-                  key  = "latest"
-                }
+        dynamic "env" {
+          for_each = each.value.secret_env
+          content {
+            name = env.key
+            value_from {
+              secret_key_ref {
+                name = env.value
+                key  = "latest"
               }
             }
           }
         }
       }
     }
+  }
 
-    traffic {
-      latest_revision = true
-      percent         = 100
-    }
+  traffic {
+    latest_revision = true
+    percent         = 100
   }
 
   autogenerate_revision_name = true
@@ -189,7 +205,7 @@ resource "google_cloud_run_service" "services" {
 }
 
 resource "google_cloud_run_service_iam_member" "public_invoker" {
-  for_each = toset(var.public_services)
+  for_each = var.pause_mode ? toset([]) : toset(var.public_services)
 
   location = var.region
   service  = google_cloud_run_service.services[each.key].name
@@ -234,7 +250,6 @@ resource "google_compute_backend_service" "gateway" {
   protocol              = "HTTP"
   port_name             = "http"
   load_balancing_scheme = "EXTERNAL_MANAGED"
-  timeout_sec           = 30
 
   backend {
     group = google_compute_region_network_endpoint_group.gateway.id
@@ -245,9 +260,26 @@ resource "google_compute_url_map" "main" {
   name            = "notivest-url-map"
   default_service = google_compute_backend_service.frontend.id
 
+  # Keep a single frontend host for auth cookies/state. Redirect www -> apex.
+  host_rule {
+    hosts        = ["www.${var.domain_root}"]
+    path_matcher = "frontend-www-redirect"
+  }
+
   host_rule {
     hosts        = [local.api_domain]
     path_matcher = "api"
+  }
+
+  path_matcher {
+    name = "frontend-www-redirect"
+
+    default_url_redirect {
+      host_redirect          = var.domain_root
+      https_redirect         = true
+      redirect_response_code = "MOVED_PERMANENTLY_DEFAULT"
+      strip_query            = false
+    }
   }
 
   path_matcher {

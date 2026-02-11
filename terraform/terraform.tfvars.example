@@ -5,6 +5,17 @@ domain_root = "notivest.com"
 frontend_service_name = "frontend"
 gateway_service_name  = "gateway-api"
 
+# Pause mode (cost saver):
+# - Cloud Run min instances = 0
+# - Cloud Run unauthenticated access is removed
+# - Cloud SQL stays running unless pause_cloud_sql = true
+pause_mode = false
+
+# Advanced:
+# Stopping Cloud SQL saves more, but terraform may fail on sql users/databases
+# while the instance is stopped.
+pause_cloud_sql = false
+
 # These services are called without Google IAM auth (app-level Auth0 is used).
 public_services = [
   "frontend",
@@ -196,6 +207,7 @@ services = {
     secret_env = {
       POSTGRES_PASSWORD          = "recommendation-db-password"
       LLM_API_KEY                = "llm-api-key"
+      MARKET_EVENTS_API_KEY      = "market-events-api-key"
       SERVICE_ACCOUNT_CLIENT_ID  = "svc-account-client-id"
       SERVICE_ACCOUNT_CLIENT_SECRET = "svc-account-client-secret"
       NEW_RELIC_LICENSE_KEY      = "new-relic-license-key"

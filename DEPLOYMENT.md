@@ -34,9 +34,9 @@ docker build -t recommendation-service:latest .
 ```
 
 ## 4) Tag + push a Artifact Registry
-Usa `docker-push.md` (en la raiz del repo). Ejemplo:
+Ejemplo:
 ```powershell
-docker tag frontend-notivest:latest us-central1-docker.pkg.dev/helical-cascade-477617-c9/notivest/frontend-notivest:latest
+docker tag frontend-notivest:latest us-central1-docker.pkg.dev/YOUR_PROJECT_ID/notivest/frontend-notivest:latest
 docker push us-central1-docker.pkg.dev/YOUR_PROJECT_ID/notivest/frontend-notivest:latest
 ```
 
@@ -61,6 +61,7 @@ gcloud secrets create portfolio-auth0-client-secret
 gcloud secrets create notification-smtp-password
 gcloud secrets create recommendation-db-password
 gcloud secrets create llm-api-key
+gcloud secrets create market-events-api-key
 gcloud secrets create svc-account-client-id
 gcloud secrets create svc-account-client-secret
 gcloud secrets create new-relic-api-key
@@ -87,6 +88,7 @@ cmd /c "echo|set /p=VALUE" | gcloud secrets versions add portfolio-auth0-client-
 cmd /c "echo|set /p=VALUE" | gcloud secrets versions add notification-smtp-password --data-file=-
 cmd /c "echo|set /p=VALUE" | gcloud secrets versions add recommendation-db-password --data-file=-
 cmd /c "echo|set /p=VALUE" | gcloud secrets versions add llm-api-key --data-file=-
+cmd /c "echo|set /p=VALUE" | gcloud secrets versions add market-events-api-key --data-file=-
 cmd /c "echo|set /p=VALUE" | gcloud secrets versions add svc-account-client-id --data-file=-
 cmd /c "echo|set /p=VALUE" | gcloud secrets versions add svc-account-client-secret --data-file=-
 cmd /c "echo|set /p=VALUE" | gcloud secrets versions add new-relic-api-key --data-file=-
@@ -131,6 +133,7 @@ terraform import 'google_secret_manager_secret.secrets[\"portfolio-auth0-client-
 terraform import 'google_secret_manager_secret.secrets[\"notification-smtp-password\"]' 'projects/YOUR_PROJECT_ID/secrets/notification-smtp-password'
 terraform import 'google_secret_manager_secret.secrets[\"recommendation-db-password\"]' 'projects/YOUR_PROJECT_ID/secrets/recommendation-db-password'
 terraform import 'google_secret_manager_secret.secrets[\"llm-api-key\"]' 'projects/YOUR_PROJECT_ID/secrets/llm-api-key'
+terraform import 'google_secret_manager_secret.secrets[\"market-events-api-key\"]' 'projects/YOUR_PROJECT_ID/secrets/market-events-api-key'
 terraform import 'google_secret_manager_secret.secrets[\"svc-account-client-id\"]' 'projects/YOUR_PROJECT_ID/secrets/svc-account-client-id'
 terraform import 'google_secret_manager_secret.secrets[\"svc-account-client-secret\"]' 'projects/YOUR_PROJECT_ID/secrets/svc-account-client-secret'
 terraform import 'google_secret_manager_secret.secrets[\"new-relic-api-key\"]' 'projects/YOUR_PROJECT_ID/secrets/new-relic-api-key'
@@ -143,6 +146,28 @@ terraform plan
 terraform apply
 ```
 
+## 8.1) Modo pausa (sin perder secrets)
+En `terraform/terraform.tfvars`:
+- `pause_mode = true` para pausar
+- `pause_mode = false` para reanudar
+
+Efectos de `pause_mode = true`:
+- Cloud Run: `minScale = 0`
+- Cloud Run: se remueve acceso publico (`allUsers`)
+- Cloud SQL: se mantiene encendida por defecto (`pause_cloud_sql = false`)
+
+Opcional avanzado:
+- `pause_cloud_sql = true` detiene Cloud SQL (`activation_policy = NEVER`), pero Terraform puede fallar al leer `google_sql_user`/`google_sql_database` mientras la instancia esta detenida.
+- Si usas `pause_cloud_sql = true`, levanta Cloud SQL antes de `terraform plan/apply`.
+
+Aplicar cambios:
+```powershell
+terraform plan
+terraform apply
+```
+
+Nota: puede haber costos residuales (storage, backups, red y otros consumos fuera de runtime).
+
 ## 9) DNS
 Despues del apply:
 ```powershell
@@ -151,8 +176,8 @@ terraform output cloud_run_urls
 ```
 
 Crear registros DNS para:
-- `notivest.com`
-- `www.notivest.com`
-- `api.notivest.com`
+- `YOUR_DOMAIN`
+- `www.YOUR_DOMAIN`
+- `api.YOUR_DOMAIN`
 
 Apuntar al `load_balancer_ip` y esperar a que el certificado SSL quede activo.
