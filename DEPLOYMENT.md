@@ -1,11 +1,12 @@
 # Deploy en GCP (Terraform + Docker)
 
-Guia pensada para alguien que clona este repo desde cero en Windows/PowerShell.
+Guia actualizada para desplegar la plataforma completa usando este repo (`Infra`) y Terraform.
 
 ## Requisitos
 - Google Cloud SDK (`gcloud`)
 - Terraform
 - Docker
+- Permisos en GCP para: Cloud Run, Artifact Registry, Secret Manager, Cloud SQL, Compute Load Balancer e IAM
 
 ## 1) Autenticacion y proyecto
 ```powershell
@@ -16,13 +17,13 @@ gcloud auth configure-docker us-central1-docker.pkg.dev
 ```
 
 ## 2) Artifact Registry
-Crear el repo (si no existe):
+Crear el repositorio Docker si no existe:
 ```powershell
 gcloud artifacts repositories create notivest --repository-format=docker --location us-central1
 ```
 
-## 3) Build de imagenes
-Desde el repo de cada servicio (donde esta su Dockerfile):
+## 3) Build, tag y push de imagenes
+Desde cada repo de servicio (donde esta el `Dockerfile`):
 ```powershell
 docker build -t frontend-notivest:latest .
 docker build -t gateway-api:latest .
@@ -33,120 +34,135 @@ docker build -t notification-service:latest .
 docker build -t recommendation-service:latest .
 ```
 
-## 4) Tag + push a Artifact Registry
-Ejemplo:
+Tag + push (ejemplo; repetir para cada servicio):
 ```powershell
 docker tag frontend-notivest:latest us-central1-docker.pkg.dev/YOUR_PROJECT_ID/notivest/frontend-notivest:latest
 docker push us-central1-docker.pkg.dev/YOUR_PROJECT_ID/notivest/frontend-notivest:latest
 ```
 
-## 5) Secret Manager
-Crear secretos (si no existen):
-```powershell
-gcloud secrets create frontend-auth0-secret
-gcloud secrets create frontend-auth0-client-id
-gcloud secrets create frontend-auth0-client-secret
-gcloud secrets create gateway-auth0-client-id
-gcloud secrets create gateway-auth0-client-secret
-gcloud secrets create finnhub-api-key
-gcloud secrets create polygon-api-key
-gcloud secrets create price-fetcher-new-relic-license-key
-gcloud secrets create portfolio-db-password
-gcloud secrets create portfolio-new-relic-license-key
-gcloud secrets create alertengine-db-password
-gcloud secrets create pricefetcher-client-id
-gcloud secrets create pricefetcher-client-secret
-gcloud secrets create notification-db-password
-gcloud secrets create portfolio-auth0-client-secret
-gcloud secrets create notification-smtp-password
-gcloud secrets create recommendation-db-password
-gcloud secrets create llm-api-key
-gcloud secrets create market-events-api-key
-gcloud secrets create svc-account-client-id
-gcloud secrets create svc-account-client-secret
-gcloud secrets create new-relic-api-key
-gcloud secrets create recommendation-new-relic-license-key
-```
+Nombres esperados por `terraform/terraform.tfvars.example`:
+- `frontend-notivest`
+- `gateway-api`
+- `price-fetcher`
+- `portfolio-service`
+- `alert-engine`
+- `notification-service`
+- `recommendation-service`
 
-Agregar versiones (reemplazar VALUE):
-```powershell
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add frontend-auth0-secret --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add frontend-auth0-client-id --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add frontend-auth0-client-secret --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add gateway-auth0-client-id --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add gateway-auth0-client-secret --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add finnhub-api-key --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add polygon-api-key --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add price-fetcher-new-relic-license-key --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add portfolio-db-password --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add portfolio-new-relic-license-key --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add alertengine-db-password --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add pricefetcher-client-id --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add pricefetcher-client-secret --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add notification-db-password --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add portfolio-auth0-client-secret --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add notification-smtp-password --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add recommendation-db-password --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add llm-api-key --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add market-events-api-key --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add svc-account-client-id --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add svc-account-client-secret --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add new-relic-api-key --data-file=-
-cmd /c "echo|set /p=VALUE" | gcloud secrets versions add recommendation-new-relic-license-key --data-file=-
-```
-
-## 6) Configurar Terraform
+## 4) Configurar Terraform
 Crear `terraform/terraform.tfvars` (esta en `.gitignore`):
 ```powershell
 Copy-Item terraform/terraform.tfvars.example terraform/terraform.tfvars
 ```
 
-Editar `terraform/terraform.tfvars`:
+Editar `terraform/terraform.tfvars` y completar al menos:
 - `project_id`, `region`, `domain_root`
 - `services.*.image` con los tags que pusheaste
-- `secret_env` debe contener **solo el nombre del secret** (no el valor)
-- `cloudsql_users` debe tener passwords fuertes
+- `AUTH0_*`, URLs internas y variables de cada servicio
+- `cloudsql_users` con passwords fuertes
+- `secret_env`: solo nombres de secret (no valores)
 
-## 7) Importar secrets al state de Terraform
-Si creaste los secrets manualmente con `gcloud`, importalos:
+## 5) Secret Manager
+El `tfvars.example` actual usa estos secretos:
+
+```text
+frontend-auth0-secret
+frontend-auth0-client-id
+frontend-auth0-client-secret
+gateway-auth0-client-id
+gateway-auth0-client-secret
+finnhub-api-key
+polygon-api-key
+price-fetcher-new-relic-license-key
+portfolio-db-password
+portfolio-new-relic-license-key
+alertengine-db-password
+pricefetcher-client-id
+pricefetcher-client-secret
+notification-db-password
+portfolio-auth0-client-secret
+notification-smtp-password
+recommendation-db-password
+llm-api-key
+market-events-api-key
+svc-account-client-id
+svc-account-client-secret
+new-relic-api-key
+recommendation-new-relic-license-key
+```
+
+Crear secretos (idempotente):
+```powershell
+$PROJECT_ID = "YOUR_PROJECT_ID"
+$secrets = @(
+  "frontend-auth0-secret",
+  "frontend-auth0-client-id",
+  "frontend-auth0-client-secret",
+  "gateway-auth0-client-id",
+  "gateway-auth0-client-secret",
+  "finnhub-api-key",
+  "polygon-api-key",
+  "price-fetcher-new-relic-license-key",
+  "portfolio-db-password",
+  "portfolio-new-relic-license-key",
+  "alertengine-db-password",
+  "pricefetcher-client-id",
+  "pricefetcher-client-secret",
+  "notification-db-password",
+  "portfolio-auth0-client-secret",
+  "notification-smtp-password",
+  "recommendation-db-password",
+  "llm-api-key",
+  "market-events-api-key",
+  "svc-account-client-id",
+  "svc-account-client-secret",
+  "new-relic-api-key",
+  "recommendation-new-relic-license-key"
+)
+
+foreach ($s in $secrets) {
+  gcloud secrets describe $s --project $PROJECT_ID *> $null
+  if ($LASTEXITCODE -ne 0) {
+    gcloud secrets create $s --replication-policy=automatic --project $PROJECT_ID
+  }
+}
+```
+
+Agregar una version por secreto (valor distinto por cada uno):
+```powershell
+foreach ($s in $secrets) {
+  $value = Read-Host "Valor para $s"
+  $tmp = New-TemporaryFile
+  Set-Content -Path $tmp -NoNewline -Value $value
+  gcloud secrets versions add $s --data-file=$tmp --project $PROJECT_ID
+  Remove-Item $tmp -Force
+}
+```
+
+## 6) Importar secretos al state de Terraform (solo si los creaste manualmente)
+Si los secretos ya existen fuera de Terraform, importalos antes de `apply`:
+
 ```powershell
 Set-Location terraform
 terraform init
+$PROJECT_ID = "YOUR_PROJECT_ID"
+# Usa el mismo array $secrets definido en el paso anterior.
 ```
 
 ```powershell
-terraform import 'google_secret_manager_secret.secrets[\"frontend-auth0-secret\"]' 'projects/YOUR_PROJECT_ID/secrets/frontend-auth0-secret'
-terraform import 'google_secret_manager_secret.secrets[\"frontend-auth0-client-id\"]' 'projects/YOUR_PROJECT_ID/secrets/frontend-auth0-client-id'
-terraform import 'google_secret_manager_secret.secrets[\"frontend-auth0-client-secret\"]' 'projects/YOUR_PROJECT_ID/secrets/frontend-auth0-client-secret'
-terraform import 'google_secret_manager_secret.secrets[\"gateway-auth0-client-id\"]' 'projects/YOUR_PROJECT_ID/secrets/gateway-auth0-client-id'
-terraform import 'google_secret_manager_secret.secrets[\"gateway-auth0-client-secret\"]' 'projects/YOUR_PROJECT_ID/secrets/gateway-auth0-client-secret'
-terraform import 'google_secret_manager_secret.secrets[\"finnhub-api-key\"]' 'projects/YOUR_PROJECT_ID/secrets/finnhub-api-key'
-terraform import 'google_secret_manager_secret.secrets[\"polygon-api-key\"]' 'projects/YOUR_PROJECT_ID/secrets/polygon-api-key'
-terraform import 'google_secret_manager_secret.secrets[\"price-fetcher-new-relic-license-key\"]' 'projects/YOUR_PROJECT_ID/secrets/price-fetcher-new-relic-license-key'
-terraform import 'google_secret_manager_secret.secrets[\"portfolio-db-password\"]' 'projects/YOUR_PROJECT_ID/secrets/portfolio-db-password'
-terraform import 'google_secret_manager_secret.secrets[\"portfolio-new-relic-license-key\"]' 'projects/YOUR_PROJECT_ID/secrets/portfolio-new-relic-license-key'
-terraform import 'google_secret_manager_secret.secrets[\"alertengine-db-password\"]' 'projects/YOUR_PROJECT_ID/secrets/alertengine-db-password'
-terraform import 'google_secret_manager_secret.secrets[\"pricefetcher-client-id\"]' 'projects/YOUR_PROJECT_ID/secrets/pricefetcher-client-id'
-terraform import 'google_secret_manager_secret.secrets[\"pricefetcher-client-secret\"]' 'projects/YOUR_PROJECT_ID/secrets/pricefetcher-client-secret'
-terraform import 'google_secret_manager_secret.secrets[\"notification-db-password\"]' 'projects/YOUR_PROJECT_ID/secrets/notification-db-password'
-terraform import 'google_secret_manager_secret.secrets[\"portfolio-auth0-client-secret\"]' 'projects/YOUR_PROJECT_ID/secrets/portfolio-auth0-client-secret'
-terraform import 'google_secret_manager_secret.secrets[\"notification-smtp-password\"]' 'projects/YOUR_PROJECT_ID/secrets/notification-smtp-password'
-terraform import 'google_secret_manager_secret.secrets[\"recommendation-db-password\"]' 'projects/YOUR_PROJECT_ID/secrets/recommendation-db-password'
-terraform import 'google_secret_manager_secret.secrets[\"llm-api-key\"]' 'projects/YOUR_PROJECT_ID/secrets/llm-api-key'
-terraform import 'google_secret_manager_secret.secrets[\"market-events-api-key\"]' 'projects/YOUR_PROJECT_ID/secrets/market-events-api-key'
-terraform import 'google_secret_manager_secret.secrets[\"svc-account-client-id\"]' 'projects/YOUR_PROJECT_ID/secrets/svc-account-client-id'
-terraform import 'google_secret_manager_secret.secrets[\"svc-account-client-secret\"]' 'projects/YOUR_PROJECT_ID/secrets/svc-account-client-secret'
-terraform import 'google_secret_manager_secret.secrets[\"new-relic-api-key\"]' 'projects/YOUR_PROJECT_ID/secrets/new-relic-api-key'
-terraform import 'google_secret_manager_secret.secrets[\"recommendation-new-relic-license-key\"]' 'projects/YOUR_PROJECT_ID/secrets/recommendation-new-relic-license-key'
+foreach ($s in $secrets) {
+  terraform import "google_secret_manager_secret.secrets[`"$s`"]" "projects/$PROJECT_ID/secrets/$s"
+}
 ```
 
-## 8) Terraform plan/apply
+## 7) Terraform plan/apply
 ```powershell
+Set-Location terraform
 terraform plan
 terraform apply
 ```
 
-## 8.1) Modo pausa (sin perder secrets)
+## 7.1) Modo pausa (sin perder recursos)
 En `terraform/terraform.tfvars`:
 - `pause_mode = true` para pausar
 - `pause_mode = false` para reanudar
@@ -154,24 +170,18 @@ En `terraform/terraform.tfvars`:
 Efectos de `pause_mode = true`:
 - Cloud Run: `minScale = 0`
 - Cloud Run: se remueve acceso publico (`allUsers`)
-- Cloud SQL: se mantiene encendida por defecto (`pause_cloud_sql = false`)
+- Cloud SQL: queda encendida por defecto (`pause_cloud_sql = false`)
 
 Opcional avanzado:
-- `pause_cloud_sql = true` detiene Cloud SQL (`activation_policy = NEVER`), pero Terraform puede fallar al leer `google_sql_user`/`google_sql_database` mientras la instancia esta detenida.
-- Si usas `pause_cloud_sql = true`, levanta Cloud SQL antes de `terraform plan/apply`.
+- `pause_cloud_sql = true` detiene Cloud SQL (`activation_policy = NEVER`)
+- Si haces esto, Terraform puede fallar al leer `google_sql_user`/`google_sql_database` mientras la instancia esta detenida
 
-Aplicar cambios:
-```powershell
-terraform plan
-terraform apply
-```
-
-Nota: puede haber costos residuales (storage, backups, red y otros consumos fuera de runtime).
-
-## 9) DNS
-Despues del apply:
+## 8) DNS y verificacion
+Despues del `apply`:
 ```powershell
 terraform output load_balancer_ip
+terraform output frontend_domains
+terraform output api_domain
 terraform output cloud_run_urls
 ```
 
@@ -180,4 +190,4 @@ Crear registros DNS para:
 - `www.YOUR_DOMAIN`
 - `api.YOUR_DOMAIN`
 
-Apuntar al `load_balancer_ip` y esperar a que el certificado SSL quede activo.
+Apuntar al `load_balancer_ip` y esperar a que el certificado SSL administrado quede activo.

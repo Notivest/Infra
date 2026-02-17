@@ -1,6 +1,6 @@
-project_id  = "my-gcp-project"
-region      = "southamerica-east1"
-domain_root = "notivest.com"
+project_id  = "YOUR_GCP_PROJECT_ID"
+region      = "us-central1"
+domain_root = "yourdomain.com"
 
 frontend_service_name = "frontend"
 gateway_service_name  = "gateway-api"
@@ -31,30 +31,30 @@ cloudsql_databases = [
   "alertengine",
   "portfolio",
   "recommendation",
-  "notification",
+  "notification_service",
 ]
 
 cloudsql_users = {
-  alertengine    = "CHANGE_ME_STRONG_32_CHAR_PASSWORD"
-  portfolio      = "CHANGE_ME_STRONG_32_CHAR_PASSWORD"
-  recommendation = "CHANGE_ME_STRONG_32_CHAR_PASSWORD"
-  notification   = "CHANGE_ME_STRONG_32_CHAR_PASSWORD"
+  alertengine          = "CHANGE_ME_STRONG_32_CHAR_PASSWORD"
+  portfolio            = "CHANGE_ME_STRONG_32_CHAR_PASSWORD"
+  recommendation       = "CHANGE_ME_STRONG_32_CHAR_PASSWORD"
+  notification_service = "CHANGE_ME_STRONG_32_CHAR_PASSWORD"
 }
 
 services = {
   frontend = {
-    image         = "southamerica-east1-docker.pkg.dev/PROJECT/REPO/frontend:TAG"
+    image         = "us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/notivest/frontend-notivest:latest"
     port          = 3000
     cpu           = "1"
-    memory        = "512Mi"
-    min_instances = 0
+    memory        = "1Gi"
+    min_instances = 1
     max_instances = 2
     env = {
-      API_BASE_URL                = "https://api.notivest.com"
-      AUTH0_BASE_URL              = "https://notivest.com"
-      AUTH0_ISSUER_BASE_URL       = "https://YOUR_AUTH0_DOMAIN/"
-      AUTH0_AUDIENCE              = "https://api.notivest/"
-      NEXT_PUBLIC_API_BASE_URL    = "https://api.notivest.com"
+      API_BASE_URL                         = "https://api.yourdomain.com"
+      AUTH0_BASE_URL                       = "https://yourdomain.com"
+      AUTH0_ISSUER_BASE_URL                = "https://YOUR_AUTH0_DOMAIN/"
+      AUTH0_AUDIENCE                       = "https://api.notivest/"
+      NEXT_PUBLIC_API_BASE_URL             = "https://api.yourdomain.com"
       NEXT_PUBLIC_DEBUG_PERFORMANCE_HISTORY = "false"
     }
     secret_env = {
@@ -65,26 +65,26 @@ services = {
   }
 
   gateway-api = {
-    image         = "southamerica-east1-docker.pkg.dev/PROJECT/REPO/gateway:TAG"
+    image         = "us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/notivest/gateway-api:latest"
     port          = 8080
     cpu           = "1"
-    memory        = "512Mi"
+    memory        = "1Gi"
     min_instances = 1
     max_instances = 3
     env = {
-      AUTH0_DOMAIN                  = "YOUR_AUTH0_DOMAIN"
-      AUTH0_AUDIENCE                = "https://api.notivest/"
-      PORTFOLIO_SERVICE_URL         = "https://portfolio-service-REGION.a.run.app"
-      PRICES_SERVICE_URL            = "https://price-fetcher-REGION.a.run.app"
-      ALERT_ENGINE_URL              = "https://alert-engine-REGION.a.run.app"
-      NOTIFICATION_SERVICE_URL      = "https://notification-service-REGION.a.run.app"
-      RECOMMENDATION_SERVICE_URL    = "https://recommendation-service-REGION.a.run.app"
-      SERVER_PORT                   = "8080"
-      SPRING_PROFILES_ACTIVE        = "prod"
-      LOGGING_LEVEL_ROOT            = "INFO"
-      LOGGING_LEVEL_COM_NOTIVEST    = "INFO"
-      FRONTEND_ORIGINS              = "https://notivest.com"
-      RECOMMENDATION_RESPONSE_TIMEOUT_MS = "15000"
+      AUTH0_DOMAIN                       = "YOUR_AUTH0_DOMAIN"
+      AUTH0_AUDIENCE                     = "https://api.notivest/"
+      PORTFOLIO_SERVICE_URL              = "https://portfolio-service-REGION_HASH.a.run.app"
+      PRICES_SERVICE_URL                 = "https://price-fetcher-REGION_HASH.a.run.app"
+      ALERT_ENGINE_URL                   = "https://alert-engine-REGION_HASH.a.run.app"
+      NOTIFICATION_SERVICE_URL           = "https://notification-service-REGION_HASH.a.run.app"
+      RECOMMENDATION_SERVICE_URL         = "https://recommendation-service-REGION_HASH.a.run.app"
+      SERVER_PORT                        = "8080"
+      SPRING_PROFILES_ACTIVE             = "auth"
+      LOGGING_LEVEL_ROOT                 = "INFO"
+      LOGGING_LEVEL_COM_NOTIVEST         = "INFO"
+      FRONTEND_ORIGINS                   = "https://yourdomain.com"
+      RECOMMENDATION_RESPONSE_TIMEOUT_MS = "120000"
     }
     secret_env = {
       AUTH0_CLIENT_ID     = "gateway-auth0-client-id"
@@ -93,124 +93,184 @@ services = {
   }
 
   price-fetcher = {
-    image         = "southamerica-east1-docker.pkg.dev/PROJECT/REPO/price-fetcher:TAG"
+    image         = "us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/notivest/price-fetcher:latest"
     port          = 8081
     cpu           = "1"
-    memory        = "512Mi"
-    min_instances = 0
+    memory        = "1Gi"
+    min_instances = 1
     max_instances = 2
     env = {
       JWT_ISSUER_URI = "https://YOUR_AUTH0_DOMAIN/"
       JWT_AUDIENCE   = "https://api.notivest/"
     }
     secret_env = {
-      FINNHUB_API_KEY        = "finnhub-api-key"
-      POLYGON_API_KEY        = "polygon-api-key"
-      NEW_RELIC_LICENSE_KEY  = "new-relic-license-key"
+      FINNHUB_API_KEY       = "finnhub-api-key"
+      POLYGON_API_KEY       = "polygon-api-key"
+      NEW_RELIC_LICENSE_KEY = "price-fetcher-new-relic-license-key"
     }
   }
 
   portfolio-service = {
-    image         = "southamerica-east1-docker.pkg.dev/PROJECT/REPO/portfolio:TAG"
-    port          = 8082
+    image         = "us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/notivest/portfolio-service:latest"
+    port          = 8080
     cpu           = "1"
-    memory        = "512Mi"
-    min_instances = 0
+    memory        = "1Gi"
+    min_instances = 1
     max_instances = 2
     env = {
-      JWT_ISSUER_URI     = "https://YOUR_AUTH0_DOMAIN/"
-      JWT_AUDIENCE       = "https://api.notivest/"
-      JWT_USER_ID_CLAIM  = "https://api.notivest/user_id"
-      SPRING_PROFILES_ACTIVE = "auth"
-      POSTGRES_DB        = "portfolio"
-      POSTGRES_USER      = "portfolio"
-      SPRING_DATASOURCE_URL = "jdbc:postgresql:///portfolio"
+      JWT_ISSUER_URI                           = "https://YOUR_AUTH0_DOMAIN/"
+      JWT_AUDIENCE                             = "https://api.notivest/"
+      JWT_USER_ID_CLAIM                        = "https://api.notivest/user_id"
+      SPRING_PROFILES_ACTIVE                   = "auth"
+      POSTGRES_DB                              = "portfolio"
+      POSTGRES_USER                            = "portfolio"
+      SPRING_DATASOURCE_URL                    = "jdbc:postgresql:///portfolio?cloudSqlInstance=YOUR_PROJECT:YOUR_REGION:notivest-postgres&socketFactory=com.google.cloud.sql.postgres.SocketFactory"
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE = "3"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE   = "1"
     }
     secret_env = {
       POSTGRES_PASSWORD     = "portfolio-db-password"
-      NEW_RELIC_LICENSE_KEY = "new-relic-license-key"
+      NEW_RELIC_LICENSE_KEY = "portfolio-new-relic-license-key"
     }
   }
 
   alert-engine = {
-    image         = "southamerica-east1-docker.pkg.dev/PROJECT/REPO/alert-engine:TAG"
-    port          = 8083
+    image         = "us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/notivest/alert-engine:latest"
+    port          = 8080
     cpu           = "1"
-    memory        = "512Mi"
+    memory        = "1Gi"
     min_instances = 1
     max_instances = 3
     env = {
-      JWT_ISSUER_URI        = "https://YOUR_AUTH0_DOMAIN/"
-      JWT_AUDIENCE          = "https://api.notivest/"
-      JWT_USER_ID_CLAIM     = "https://api.notivest/user_id"
-      SPRING_PROFILES_ACTIVE = "auth"
-      POSTGRES_DB           = "alertengine"
-      POSTGRES_USER         = "alertengine"
-      SPRING_DATASOURCE_URL = "jdbc:postgresql:///alertengine"
-      PRICEDATA_BASE_URL    = "https://price-fetcher-REGION.a.run.app"
-      NOTIFICATION_BASE_URL = "https://notification-service-REGION.a.run.app"
+      JWT_ISSUER_URI                           = "https://YOUR_AUTH0_DOMAIN/"
+      JWT_AUDIENCE                             = "https://api.notivest/"
+      JWT_USER_ID_CLAIM                        = "https://api.notivest/user_id"
+      SPRING_PROFILES_ACTIVE                   = "auth"
+      POSTGRES_DB                              = "alertengine"
+      POSTGRES_USER                            = "alertengine"
+      SPRING_DATASOURCE_URL                    = "jdbc:postgresql:///alertengine?cloudSqlInstance=YOUR_PROJECT:YOUR_REGION:notivest-postgres&socketFactory=com.google.cloud.sql.postgres.SocketFactory"
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE = "3"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE   = "1"
+      PRICEDATA_BASE_URL                       = "https://price-fetcher-REGION_HASH.a.run.app"
+      NOTIFICATION_BASE_URL                    = "https://notification-service-REGION_HASH.a.run.app"
+      SCOPE_AUTH0                              = ""
     }
     secret_env = {
-      POSTGRES_PASSWORD      = "alertengine-db-password"
-      PRICEFETCHER_CLIENT_ID = "pricefetcher-client-id"
+      POSTGRES_PASSWORD          = "alertengine-db-password"
+      PRICEFETCHER_CLIENT_ID     = "pricefetcher-client-id"
       PRICEFETCHER_CLIENT_SECRET = "pricefetcher-client-secret"
     }
   }
 
   notification-service = {
-    image         = "southamerica-east1-docker.pkg.dev/PROJECT/REPO/notification:TAG"
+    image         = "us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/notivest/notification-service:latest"
     port          = 8080
     cpu           = "1"
-    memory        = "512Mi"
-    min_instances = 0
+    memory        = "1Gi"
+    min_instances = 1
     max_instances = 2
     env = {
-      JWT_ISSUER_URI        = "https://YOUR_AUTH0_DOMAIN/"
-      JWT_AUDIENCE          = "https://api.notivest/"
-      JWT_USER_ID_CLAIM     = "https://api.notivest/user_id"
-      JWT_EMAIL_CLAIM       = "https://api.notivest/email"
-      JWT_DEFAULT_EMAIL     = "alerts@notivest.com"
-      POSTGRES_DB           = "notification"
-      POSTGRES_USER         = "notification"
-      SPRING_DATASOURCE_URL = "jdbc:postgresql:///notification"
-      PORTFOLIO_SERVICE_BASE_URL = "https://portfolio-service-REGION.a.run.app"
+      JWT_ISSUER_URI                          = "https://YOUR_AUTH0_DOMAIN/"
+      JWT_AUDIENCE                            = "https://api.notivest/"
+      JWT_USER_ID_CLAIM                       = "https://api.notivest/user_id"
+      JWT_EMAIL_CLAIM                         = "https://api.notivest/email"
+      JWT_DEFAULT_EMAIL                       = "default-profile@yourdomain.local"
+      DB_HOST                                 = "postgres"
+      DB_PORT                                 = "5432"
+      DB_NAME                                 = "notification_service"
+      DB_USERNAME                             = "notification_service"
+      POSTGRES_DB                             = "notification_service"
+      POSTGRES_USER                           = "notification_service"
+      SPRING_DATASOURCE_URL                   = "jdbc:postgresql:///notification_service?cloudSqlInstance=YOUR_PROJECT:YOUR_REGION:notivest-postgres&socketFactory=com.google.cloud.sql.postgres.SocketFactory"
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE = "3"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE  = "1"
+      SPRING_DATASOURCE_USERNAME              = "notification_service"
+      APP_PORT                                = "8080"
+      SPRING_PROFILES_ACTIVE                  = "auth,default-email"
+      PORTFOLIO_SERVICE_AUTH0_DOMAIN          = "https://YOUR_AUTH0_DOMAIN"
+      PORTFOLIO_SERVICE_AUTH0_CLIENT_ID       = "YOUR_M2M_CLIENT_ID"
+      PORTFOLIO_SERVICE_AUTH0_AUDIENCE        = "https://api.notivest/"
+      PORTFOLIO_SERVICE_AUTH0_SCOPE           = "portfolio:read:user-context"
+      PORTFOLIO_SERVICE_AUTH_CONNECT_TIMEOUT  = "PT0.5S"
+      PORTFOLIO_SERVICE_AUTH_READ_TIMEOUT     = "PT3S"
+      PORTFOLIO_SERVICE_AUTH_CLOCK_SKEW       = "PT60S"
+      NOTIFICATION_EMAIL_FROM                 = "notifications@yourdomain.com"
+      SMTP_HOST                               = "smtp.sendgrid.net"
+      SMTP_PORT                               = "587"
+      SMTP_USERNAME                           = "apikey"
+      SMTP_AUTH                               = "true"
+      SMTP_STARTTLS                           = "true"
+      MAILPIT_UI_PORT                         = "8025"
+      MAILPIT_SMTP_PORT                       = "1025"
+      SPRING_MAIL_PROPERTIES_MAIL_DEBUG       = "false"
+      PORTFOLIO_SERVICE_BASE_URL              = "https://portfolio-service-REGION_HASH.a.run.app"
     }
     secret_env = {
-      POSTGRES_PASSWORD = "notification-db-password"
-      SMTP_HOST         = "smtp-host"
-      SMTP_PORT         = "smtp-port"
-      SMTP_USERNAME     = "smtp-username"
-      SMTP_PASSWORD     = "smtp-password"
+      DB_PASSWORD                           = "notification-db-password"
+      POSTGRES_PASSWORD                     = "notification-db-password"
+      SPRING_DATASOURCE_PASSWORD            = "notification-db-password"
+      PORTFOLIO_SERVICE_AUTH0_CLIENT_SECRET = "portfolio-auth0-client-secret"
+      SMTP_PASSWORD                         = "notification-smtp-password"
     }
   }
 
   recommendation-service = {
-    image         = "southamerica-east1-docker.pkg.dev/PROJECT/REPO/recommendation:TAG"
-    port          = 8086
+    image         = "us-central1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/notivest/recommendation-service:latest"
+    port          = 8080
     cpu           = "1"
-    memory        = "512Mi"
-    min_instances = 0
+    memory        = "1Gi"
+    min_instances = 1
     max_instances = 2
     env = {
-      POSTGRES_DB           = "recommendation"
-      POSTGRES_USER         = "recommendation"
-      SPRING_DATASOURCE_URL = "jdbc:postgresql:///recommendation"
-      JWT_ISSUER_URI        = "https://YOUR_AUTH0_DOMAIN/"
-      JWT_AUDIENCE          = "https://api.notivest/"
-      NOTIFICATION_SERVICE_BASE_URL = "https://notification-service-REGION.a.run.app"
-      PORTFOLIO_SERVICE_BASE_URL     = "https://portfolio-service-REGION.a.run.app"
-      ALERT_ENGINE_BASE_URL          = "https://alert-engine-REGION.a.run.app"
-      PRICE_FETCHER_BASE_URL         = "https://price-fetcher-REGION.a.run.app"
-      BENCHMARK_CACHE_TTL_MINUTES    = "60"
-      ALERT_ENGINE_CATALOG_CACHE_TTL_MINUTES = "30"
+      POSTGRES_DB                               = "recommendation"
+      POSTGRES_USER                             = "recommendation"
+      SPRING_DATASOURCE_URL                     = "jdbc:postgresql:///recommendation?cloudSqlInstance=YOUR_PROJECT:YOUR_REGION:notivest-postgres&socketFactory=com.google.cloud.sql.postgres.SocketFactory"
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE = "3"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE    = "1"
+      JWT_ISSUER_URI                            = "https://YOUR_AUTH0_DOMAIN/"
+      JWT_AUDIENCE                              = "https://api.notivest/"
+      JWT_USER_ID_CLAIM                         = "https://api.notivest/user_id"
+      SPRING_PROFILES_ACTIVE                    = "auth"
+      NOTIFICATION_SERVICE_BASE_URL             = "https://notification-service-REGION_HASH.a.run.app"
+      PORTFOLIO_SERVICE_BASE_URL                = "https://portfolio-service-REGION_HASH.a.run.app"
+      ALERT_ENGINE_BASE_URL                     = "https://alert-engine-REGION_HASH.a.run.app"
+      PRICE_FETCHER_BASE_URL                    = "https://price-fetcher-REGION_HASH.a.run.app"
+      LLM_PROVIDER                              = "openai"
+      LLM_BASE_URL                              = "https://api.openai.com/v1"
+      LLM_MODEL                                 = "gpt-5-mini"
+      LLM_TEMPERATURE                           = "1"
+      LLM_CONNECT_TIMEOUT_MS                    = "3000"
+      LLM_READ_TIMEOUT_MS                       = "90000"
+      LLM_RESPONSE_TIMEOUT_MS                   = "90000"
+      LLM_TOOL_CALLING_ENABLED                  = "true"
+      LLM_TOOL_CALLING_MAX_CALLS                = "5"
+      LLM_TOOL_CALLING_TIMEOUT_MS               = "20000"
+      LLM_TOOL_TOTAL_TIMEOUT_MS                 = "80000"
+      RECOMMENDATIONS_DEDUP_HOURS               = "24"
+      RECOMMENDATIONS_SCHEDULER_ENABLED         = "true"
+      RECOMMENDATIONS_SCHEDULER_CRON            = "0 0 16 * * MON-FRI"
+      RECOMMENDATIONS_SCHEDULER_ZONE            = "America/New_York"
+      RECOMMENDATIONS_SCHEDULER_AUTH_TOKEN      = ""
+      SERVICE_ACCOUNT_AUDIENCE                  = "https://api.notivest/"
+      SERVICE_ACCOUNT_SCOPE                     = "portfolio:read:user-context"
+      NEW_RELIC_ACCOUNT_ID                      = "YOUR_NEW_RELIC_ACCOUNT_ID"
+      NEW_RELIC_METRICS_URI                     = "https://metric-api.newrelic.com/metric/v1"
+      NEW_RELIC_APP_NAME                        = "recommendation-service"
+      NEW_RELIC_LOG_FILE_NAME                   = "STDOUT"
+      RECOMMENDATIONS_NOTIFICATIONS_DIGEST_ENABLED = "true"
+      ALERT_COPILOT_CONVERSATION_TTL_MINUTES    = "43200"
+      ALERT_COPILOT_LLM_TOOL_CALLING_ENABLED    = "true"
+      BENCHMARK_CACHE_TTL_MINUTES               = "60"
+      ALERT_ENGINE_CATALOG_CACHE_TTL_MINUTES    = "30"
     }
     secret_env = {
-      POSTGRES_PASSWORD          = "recommendation-db-password"
-      LLM_API_KEY                = "llm-api-key"
-      MARKET_EVENTS_API_KEY      = "market-events-api-key"
-      SERVICE_ACCOUNT_CLIENT_ID  = "svc-account-client-id"
+      POSTGRES_PASSWORD             = "recommendation-db-password"
+      LLM_API_KEY                   = "llm-api-key"
+      MARKET_EVENTS_API_KEY         = "market-events-api-key"
+      SERVICE_ACCOUNT_CLIENT_ID     = "svc-account-client-id"
       SERVICE_ACCOUNT_CLIENT_SECRET = "svc-account-client-secret"
-      NEW_RELIC_LICENSE_KEY      = "new-relic-license-key"
+      NEW_RELIC_API_KEY             = "new-relic-api-key"
+      NEW_RELIC_LICENSE_KEY         = "recommendation-new-relic-license-key"
     }
   }
 }
