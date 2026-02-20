@@ -200,6 +200,7 @@ services = {
       SMTP_USERNAME                           = "apikey"
       SMTP_AUTH                               = "true"
       SMTP_STARTTLS                           = "true"
+      SMTP_STARTTLS_REQUIRED                  = "true"
       MAILPIT_UI_PORT                         = "8025"
       MAILPIT_SMTP_PORT                       = "1025"
       SPRING_MAIL_PROPERTIES_MAIL_DEBUG       = "false"
